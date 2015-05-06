@@ -1,0 +1,90 @@
+#!/bin/bash
+#
+# Minidlna - This shell script takes care of starting and stopping Minidlna.
+#
+# chkconfig: - 80 20
+#
+# Short-Description: start and stop Minidlna
+
+CONFIG_FILE=/etc/minidlna.conf
+SHUTDOWN_WAIT=5
+
+minidlna_pid() {
+echo $(ps aux | grep minidlna | grep -v grep | awk '{ print $2 }')
+}
+
+start() {
+pid=$(minidlna_pid)
+if [ -n "$pid" ];then
+   echo "Minidlna is already running (pid: $pid)"
+else
+   # Start Minidlna
+   echo "Starting Minidlna"
+   minidlna -f $CONFIG_FILE
+fi
+return 0
+}
+
+stop() {
+pid=$(minidlna_pid)
+if [ -n "$pid" ];then
+   echo "Stoping Minidlna"
+   kill $pid
+   let kwait=$SHUTDOWN_WAIT
+   count=0;
+
+   until [ `ps -p $pid | grep -c $pid` = '0' ] || [ $count -gt $kwait ];do
+      echo -n -e "\nwaiting for processes to exit";
+      sleep 1
+      let count=$count+1;
+   done
+
+   if [ $count -gt $kwait ]; then
+      echo -n -e "\nkilling processes which didn't stop after $SHUTDOWN_WAIT seconds"
+      kill -9 $pid
+   fi
+else
+   echo "Minidlna is not running"
+fi
+return 0
+}
+
+usage () {
+   echo "Usage: /etc/init.d/minidlna.sh start|stop|restart|status"
+return 0
+}
+
+EXPECTED_ARGS=1
+E_BADARGS=65
+
+if [ $# -ne $EXPECTED_ARGS ]
+then
+  usage
+  exit $E_BADARGS
+fi
+
+case $1 in
+start)
+   start
+;;
+stop)
+   stop
+;;
+restart)
+   stop
+   start
+;;
+status)
+   pid=$(minidlna_pid)
+   if [ -n "$pid" ];then
+      echo "Minidlna is running with pid: $pid"
+   else
+      echo "Minidlna is not running"
+   fi
+;;
+*)
+   usage
+;;
+esac
+
+exit 0
